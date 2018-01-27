@@ -90,6 +90,7 @@ You will need to create this role in all AWS accounts that you want to monitor.
                     "ec2:describedhcpoptions",
                     "ec2:describeflowlogs",
                     "ec2:describeimages",
+                    "ec2:describeimageattribute",
                     "ec2:describeinstances",
                     "ec2:describeinternetgateways",
                     "ec2:describekeypairs",
@@ -100,6 +101,7 @@ You will need to create this role in all AWS accounts that you want to monitor.
                     "ec2:describeroutetables",
                     "ec2:describesecuritygroups",
                     "ec2:describesnapshots",
+                    "ec2:describesnapshotattribute",
                     "ec2:describesubnets",
                     "ec2:describetags",
                     "ec2:describevolumes",
@@ -170,6 +172,7 @@ You will need to create this role in all AWS accounts that you want to monitor.
                     "rds:describedbinstances",
                     "rds:describedbsecuritygroups",
                     "rds:describedbsnapshots",
+                    "rds:describedbsnapshotattributes",
                     "rds:describedbsubnetgroups",
                     "redshift:describeclusters",
                     "route53:listhostedzones",
@@ -201,7 +204,9 @@ You will need to create this role in all AWS accounts that you want to monitor.
                     "sns:listsubscriptionsbytopic",
                     "sns:listtopics",
                     "sqs:getqueueattributes",
-                    "sqs:listqueues"
+                    "sqs:listqueues",
+                    "sqs:listqueuetags", 
+                    "sqs:listdeadlettersourcequeues"
                 ],
                 "Effect": "Allow",
                 "Resource": "*"

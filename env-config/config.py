@@ -90,8 +90,14 @@ SECURITY_POST_CONFIRM_VIEW = BASE_URL
 SECURITY_POST_RESET_VIEW = BASE_URL
 SECURITY_POST_CHANGE_VIEW = BASE_URL
 
+# Log SSL Cert SubjectAltName errors
+LOG_SSL_SUBJ_ALT_NAME_ERRORS = True
+
 # This address gets all change notifications (i.e. 'securityteam@example.com')
 SECURITY_TEAM_EMAIL = []
+
+# If you would prefer the email reports to exclude justified issues, set this to False
+EMAIL_AUDIT_REPORTS_INCLUDE_JUSTIFIED = True
 
 # These are only required if using SMTP instead of SES
 EMAILS_USE_SMTP = False     # Otherwise, Use SES
@@ -109,9 +115,13 @@ WTF_CSRF_METHODS = ['DELETE', 'POST', 'PUT', 'PATCH']
 # "NONE", "SUMMARY", or "FULL"
 SECURITYGROUP_INSTANCE_DETAIL = 'FULL'
 
+# To alert on IAM Roles/Users/Groups and Managed Policies with Write capabilities
+# on sensitive services, enumerate the services here:
+# DEFAULT_SENSITIVE = ['cloudhsm', 'cloudtrail', 'acm', 'config', 'kms', 'lambda', 'organizations', 'rds', 'route53', 'shield']
+# Otherwise, SM will alert on all dataplane write access.
+DEFAULT_SENSITIVE = 'ALL'
+
 # Threads used by the scheduler.
-# You will likely need at least one core thread for every account being monitored.
-CORE_THREADS = 25
 MAX_THREADS = 30
 
 # SSO SETTINGS:

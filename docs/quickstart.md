@@ -1,29 +1,52 @@
 Quick Start Guide
 =================
 
-Setup on AWS or GCP
--------------------
+What does the Security Monkey architecture look like?
+---------------------------
+Security Monkey operates in a hub-spoke type of model where Security Monkey lives in one account,
+but then "reaches into" other accounts to describe and collect details.
 
-Security Monkey can run on an Amazon EC2 (AWS) instance or a Google Cloud Platform (GCP) instance (Google Cloud Platform). The only real difference in the installation is the IAM configuration and the bringup of the Virtual Machine that runs Security Monkey.
+More details on this is outlined in the IAM section below for each respective infrastructure.
 
-GitHub Organization Monitoring
---------------
+Below is a diagram of the instance layout:
+![diagram](images/sm_instance_diagram.png)
+
+All of the components in the diagram should reside within the same account and region.
+
+
+Setup on AWS, GCP, or OpenStack
+-------------------------------
+
+Security Monkey can run on an Amazon EC2 (AWS) instance, Google Cloud Platform (GCP) instance (Google Cloud Platform), or OpenStack (public or private cloud) instance.
+The only real difference in the installation is the IAM configuration and the bringup of the Virtual Machine that runs Security Monkey.
+
+### GitHub Organization Monitoring
 For monitoring GitHub, please read the [GitHub monitoring documentation here](github_setup.md).
+
 
 IAM Permissions
 ---------------
+Security Monkey uses a hub-spoke type of infrastructure for describing accounts. Security Monkey requires credentials, which it then
+uses to describe accounts.  The following diagram illustrates this:
+![diagram](images/sm_iam_diagram.png)
+
+### Account Types:
 
 -   [AWS IAM instructions](iam_aws.md).
 -   [GCP IAM instructions](iam_gcp.md).
+-   [OpenStack IAM instructions](iam_openstack.md).
+-   [GitHub instructions](github_setup.md)
+
 
 Database
 --------
 
 Security Monkey needs a postgres database. Select one of the following:
 
--   Local Postgres (You'll set this up later once you have an instance up.)
+-   Local Postgres (You'll set this up later once you have an instance up.).
 -   [Postgres on AWS RDS](postgres_aws.md).
 -   [Postgres on GCP's Cloud SQL](postgres_gcp.md).
+-   Currently OpenStack utilizes a local postgres database.
 
 Launch an Instance:
 -------------------
@@ -31,6 +54,7 @@ Launch an Instance:
 -   [docker instructions](docker.md).
 -   [Launch an AWS instance](instance_launch_aws.md).
 -   [Launch a GCP instance](instance_launch_gcp.md).
+-   [Launch an OpenStack instance](instance_launch_openstack.md).
 
 Install Security Monkey on your Instance
 ----------------------------------------
@@ -55,7 +79,7 @@ Create the logging folders:
 Let's install the tools we need for Security Monkey:
 
     sudo apt-get update
-    sudo apt-get -y install python-pip python-dev python-psycopg2 postgresql postgresql-contrib libpq-dev nginx supervisor git libffi-dev gcc python-virtualenv
+    sudo apt-get -y install python-pip python-dev python-psycopg2 postgresql postgresql-contrib libpq-dev nginx supervisor git libffi-dev gcc python-virtualenv redis-server
 
 ### Local Postgres
 
@@ -91,6 +115,7 @@ Releases are on the master branch and are updated about every three months. Blee
     pip install --upgrade urllib3[secure]   # to prevent InsecurePlatformWarning
     pip install google-compute-engine  # Only required on GCP
     pip install cloudaux\[gcp\]
+    pip install cloudaux\[openstack\]    # Only required on OpenStack
     python setup.py develop
     
 ### 🚨⚠️🥁🎺 ULTRA SUPER IMPORTANT SPECIAL NOTE PLEASE READ THIS 🎺🥁⚠️🚨 ###
@@ -181,11 +206,17 @@ You'll need to add at least one account before starting the scheduler. It's easi
                                   [--notes NOTES] --id IDENTIFIER
                                   [--update-existing] [--creds_file CREDS_FILE]
 
+    monkey add_account_openstack
+    usage: monkey add_account_openstack [-h] -n NAME [--thirdparty] [--active]
+                                  [--notes NOTES] --id IDENTIFIER
+                                  [--update-existing]
+                                  [--cloudsyaml_file CLOUDSYAML_FILE]
+
 For clarity: the `-n NAME` refers to the name that you want Security Monkey to use to associate with the account.
 A common example would be "test" for your testing AWS account or "prod" for your main production AWS account. These names are unique.
 
 The `--id IDENTIFIER` is the back-end cloud service identifier for a given provider. For AWS, it's the 12 digit account number, 
-and for GCP, it's the project ID.
+and for GCP, it's the project ID. For OpenStack, it's the cloud configuration to load from the clouds.yaml file.
 
 ### Syncing With SWAG
 
@@ -194,10 +225,11 @@ If you're using [SWAG](https://github.com/Netflix-Skunkworks/swag-client). You c
     monkey sync_swag --owner <example-corp> --bucket-name <my-bucket> --bucket-prefix accounts.json --bucket-region us-east-1 -u
 
 
-
 ### AWS Only: S3 Canonical IDs
 
-If you are not using AWS, you can skip this section. If you are using AWS, you should run the command:
+If you are not using AWS, you can skip this section. If you are using AWS, you should run the command (this command should
+be run on the Security Monkey instance or otherwise in a place with AWS credentials. For more details, please review the
+[AWS IAM instructions](iam_aws.md)):
     
     monkey fetch_aws_canonical_ids
     usage: monkey fetch_aws_canonical_ids [-h] [--override OVERRIDE]
@@ -224,23 +256,6 @@ Users can be created on the command line or by registering in the web UI:
 - email address
 - role (One of `[View, Comment, Justify, Admin]`)
 
-Setting up Supervisor
----------------------
-
-Supervisor will auto-start security monkey and will auto-restart security monkey if it crashes.
-
-Copy supervisor config:
-
-    sudo chgrp -R www-data /var/log/security_monkey
-    sudo cp /usr/local/src/security_monkey/supervisor/security_monkey.conf /etc/supervisor/conf.d/security_monkey.conf
-    sudo service supervisor restart
-    sudo supervisorctl status
-
-Supervisor will attempt to start two python jobs and make sure they are running. The first job, securitymonkey, is gunicorn, which it launches by calling manage.py `run_api_server`.
-
-The second job supervisor runs is the scheduler, which polls for changes.
-
-You can track progress by tailing `/var/log/security_monkey/securitymonkey.log`.
 
 Create an SSL Certificate
 -------------------------
@@ -283,12 +298,31 @@ You should now be able to reach your server
 
 ![image](images/resized_login_page-1.png)
 
+Loading Data into Security Monkey
+--------------------------------
+To initially get data into Security Monkey, you can run the `monkey find_changes` command. This will go through
+all your configured accounts in Security Monkey, fetch details about the accounts, store them into the database,
+and then audit the items for any issues. 
+
+The `find_changes` command can be further scoped to account and technology with the `-a account` and `-m technology` parameters.
+
+*Note:* This is good for loading some initial data to play around with, however, you will want to configure jobs to automatically
+scan your environment periodically for changes.  Please read the next section for details.
+
+🚨 Important 🚨 - Autostarting and Fetching Data
+--------------------------------
+At this point Security Monkey is set to manually run. However, we need to ensure that it is always running and automatically
+fetching data from your environment.
+
+Please review the next section titled [Autostarting Security Monkey](autostarting.md) for details. Please note, this section
+is very important and involved, so please pay close attention to the details.
+
 User Guide
 ----------
 
-See the [User Guide](userguide.md) for a walkthrough of the security\_monkey features.
+See the [User Guide](userguide.md) for a walkthrough of Secuirty Monkey's features.
 
 Contribute
 ----------
 
-It's easy to extend security\_monkey with new rules or new technologies. Please read our [Contributing Documentation](contributing.md).
+It's easy to extend Security Monkey with new rules or new technologies. Please read our [Contributing Documentation](contributing.md) for additional details.
